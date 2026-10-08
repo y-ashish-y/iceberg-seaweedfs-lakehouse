@@ -1,5 +1,7 @@
 # SeaweedFS + Apache Iceberg 1.12 + Spark 4.2 + JDBC Catalog
 
+![CI](https://github.com/y-ashish-y/iceberg-seaweedfs-lakehouse/actions/workflows/ci.yml/badge.svg)
+
 ![Apache Spark](https://img.shields.io/badge/Apache_Spark-E25A1C?logo=apachespark&logoColor=white)
 ![Apache Iceberg](https://img.shields.io/badge/Apache_Iceberg-0882be)
 ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
