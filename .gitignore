@@ -1,0 +1,6 @@
+avro_converter.py
+commands.txt
+
+# SeaweedFS master/volume/filer metadata and data
+warehouse/*
+!warehouse/.gitkeep

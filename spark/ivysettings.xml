@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Adds the Apache snapshot repository to Ivy's resolver chain so that
+  spark.jars.packages can find snapshot-only artifacts.
+
+  Needed because Apache Iceberg 1.12.0 contains a Spark 4.2 module
+  (spark/v4.2) that fixes binary compatibility with Spark 4.2's
+  connector.catalog.View, but the 1.12.0 release never published the
+  iceberg-spark-runtime-4.2_2.13 artifact to Maven Central. Only the
+  1.12.0-SNAPSHOT builds carry it.
+
+  Drop this file and spark.jars.ivySettings if you move to Spark 4.1.x,
+  which the released 4.1 artifact supports.
+-->
+<ivysettings>
+  <settings defaultResolver="chain"/>
+  <resolvers>
+    <chain name="chain" returnFirst="true">
+      <ibiblio name="central" m2compatible="true" root="https://repo1.maven.org/maven2/"/>
+      <ibiblio name="apache-snapshots" m2compatible="true"
+                root="https://repository.apache.org/content/repositories/snapshots/"/>
+    </chain>
+  </resolvers>
+</ivysettings>

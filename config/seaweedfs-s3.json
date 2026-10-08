@@ -1,0 +1,26 @@
+{
+  "identities": [
+    {
+      "name": "icebergadmin",
+      "credentials": [
+        {
+          "accessKey": "icebergadmin",
+          "secretKey": "icebergadmin"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write",
+        "List",
+        "Tagging"
+      ]
+    },
+    {
+      "name": "anonymous",
+      "actions": [
+        "Read"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+name: apache-iceberg-seaweedfs-spark
+
+services:
+  # ---------------------------------------------------------------------
+  # SeaweedFS - S3 compatible object storage (replaces MinIO)
+  #
+  #   :8333  S3 API
+  #   :8181  Iceberg REST catalog served natively by SeaweedFS
+  #   :9333  master / cluster status
+  #   :18888 filer web UI (moved off 8888 so JupyterLab can keep 8888)
+  #
+  # `weed mini` runs master + volume + filer + S3 + Iceberg REST in one process
+  # and bootstraps the buckets named by S3_BUCKET / S3_TABLE_BUCKET, so no
+  # separate init container is needed.
+  # ---------------------------------------------------------------------
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    container_name: seaweedfs
+    restart: always
+    command:
+      - mini
+      - -ip=seaweedfs
+      - -ip.bind=0.0.0.0
+      - -filer.port=18888
+      - -s3
+      - -s3.config=/etc/seaweedfs/s3.json
+      - -s3.port=8333
+      - -s3.port.iceberg=8181
+      - -master.port=9333
+      - -volume.port=8080
+    environment:
+      # plain S3 bucket for the JDBC catalog warehouse
+      - S3_BUCKET=iceberg
+      # S3 Tables bucket backing the native Iceberg REST catalog
+      - S3_TABLE_BUCKET=iceberg-catalog
+    ports:
+      - "8333:8333"
+      - "8181:8181"
+      - "9333:9333"
+      - "18888:18888"
+    volumes:
+      - ./warehouse:/data
+      - ./config/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9333/cluster/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    networks:
+      - iceberg-net
+
+  # ---------------------------------------------------------------------
+  # Spark 4.2 + Iceberg 1.12 with a JDBC catalog in Postgres
+  # ---------------------------------------------------------------------
+  spark-iceberg:
+    build:
+      context: ./spark
+    image: iceberg-seaweedfs-spark:4.2.0-1.12.0
+    container_name: spark-iceberg
+    restart: always
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    entrypoint: ["/opt/start.sh"]
+    command: ["jupyter"]
+    volumes:
+      - ./notebooks:/home/spark/notebooks
+      - ./spark/data:/home/spark/data
+    environment:
+      - AWS_ACCESS_KEY_ID=icebergadmin
+      - AWS_SECRET_ACCESS_KEY=icebergadmin
+      - AWS_REGION=us-east-1
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    networks:
+      - iceberg-net
+
+  db:
+    # Latest stable major. 18.6 is the current minor (Postgres 19 is beta only
+    # as of 2026-09, so do not move to it). Bump the minor to pick up fixes.
+    image: postgres:18.6
+    container_name: iceberg-db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: icebergcat
+      POSTGRES_PASSWORD: iceberg
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U icebergcat -d icebergcat"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - iceberg-net
+
+  pgadmin:
+    image: dpage/pgadmin4:9.18
+    container_name: pgadmin4_container
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gft.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - ./config/servers.json:/pgadmin4/servers.json
+    networks:
+      - iceberg-net
+
+networks:
+  iceberg-net:
